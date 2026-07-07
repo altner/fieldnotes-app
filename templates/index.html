@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Field Notes</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root{
+    --paper: #ECE7D9;
+    --paper-raised: #F4F0E4;
+    --ink: #2B2A26;
+    --ink-soft: #6B6459;
+    --rule: #D8D0BD;
+    --stamp-red: #A23B2E;
+    --stamp-red-soft: #A23B2E1E;
+    --desk-teal: #3E5C58;
+    --desk-teal-soft: #3E5C581E;
+    --mixed-gold: #8A6D2F;
+    --mixed-gold-soft: #8A6D2F1E;
+    --done-green: #3F6B44;
+    --shadow: 0 1px 2px rgba(43,42,38,0.08), 0 4px 12px rgba(43,42,38,0.06);
+  }
+
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Source Serif 4', Georgia, serif;min-height:100vh;padding:32px 16px 100px;}
+  .wrap{max-width:780px;margin:0 auto;}
+
+  header{margin-bottom:24px;}
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px;}
+  h1{font-size:26px;font-weight:700;margin:0 0 4px;letter-spacing:-0.01em;}
+  .sub{color:var(--ink-soft);font-size:14px;font-style:italic;margin:0;max-width:46ch;}
+
+  .summary{display:flex;gap:16px;margin:18px 0 24px;padding:12px 16px;border:1px solid var(--rule);border-radius:2px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-soft);flex-wrap:wrap;}
+  .summary b{color:var(--ink);font-weight:500;}
+
+  .add-row{display:flex;gap:8px;margin-bottom:24px;}
+  .add-row input{flex:1;font-family:'Source Serif 4',serif;font-size:15px;padding:10px 12px;border:1px solid var(--rule);background:var(--paper-raised);border-radius:2px;color:var(--ink);}
+  .add-row input:focus{outline:2px solid var(--stamp-red);outline-offset:1px;}
+  .add-row button{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.05em;text-transform:uppercase;background:var(--ink);color:var(--paper);border:none;padding:0 18px;border-radius:2px;cursor:pointer;}
+  .add-row button:hover{background:var(--stamp-red);}
+
+  .card{background:var(--paper-raised);border:1px solid var(--rule);border-radius:2px;box-shadow:var(--shadow);margin-bottom:16px;padding:18px 20px;}
+  .card.done{opacity:0.55;}
+  .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+  .card-title{font-size:18px;font-weight:600;flex:1;background:transparent;border:none;color:var(--ink);font-family:'Source Serif 4',serif;padding:2px 0;width:100%;}
+  .card-title:focus{outline:none;border-bottom:1px solid var(--stamp-red);}
+
+  .del{background:none;border:none;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;padding:4px 6px;white-space:nowrap;}
+  .del:hover{color:var(--stamp-red);}
+
+  .status-row{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap;}
+  .stamp{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;padding:6px 10px;border-radius:2px;border:1px solid transparent;cursor:pointer;background:transparent;color:var(--ink-soft);}
+  .stamp[data-active="true"][data-kind="visit"]{background:var(--stamp-red-soft);border-color:var(--stamp-red);color:var(--stamp-red);font-weight:600;}
+  .stamp[data-active="true"][data-kind="mixed"]{background:var(--mixed-gold-soft);border-color:var(--mixed-gold);color:var(--mixed-gold);font-weight:600;}
+  .stamp[data-active="true"][data-kind="desk"]{background:var(--desk-teal-soft);border-color:var(--desk-teal);color:var(--desk-teal);font-weight:600;}
+
+  .section-label{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-soft);margin:14px 0 8px;border-top:1px dashed var(--rule);padding-top:12px;}
+
+  .fieldnote{border-left:2px solid var(--stamp-red);padding:8px 0 8px 12px;margin-bottom:10px;}
+  .fieldnote-meta{display:flex;gap:10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-soft);margin-bottom:4px;flex-wrap:wrap;align-items:center;}
+  .fieldnote-meta input{font-family:'JetBrains Mono',monospace;font-size:11px;border:none;background:transparent;color:var(--ink-soft);padding:2px 4px;}
+  .fieldnote-meta input[type="date"]{width:120px;}
+  .fieldnote-meta .fn-del{margin-left:auto;background:none;border:none;color:var(--ink-soft);cursor:pointer;font-size:11px;}
+  .fieldnote-meta .fn-del:hover{color:var(--stamp-red);}
+  .fieldnote textarea{width:100%;min-height:52px;font-family:'Source Serif 4',serif;font-size:14.5px;line-height:1.5;color:var(--ink);background:transparent;border:none;resize:vertical;}
+  .fieldnote textarea:focus{outline:none;}
+
+  .location-row{display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap;}
+  .locate-btn{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:0.03em;color:var(--desk-teal);background:var(--desk-teal-soft);border:1px solid var(--desk-teal);padding:5px 9px;border-radius:2px;cursor:pointer;white-space:nowrap;}
+  .locate-btn:hover{background:var(--desk-teal);color:var(--paper-raised);}
+  .location-row input.place{flex:1;min-width:120px;font-family:'JetBrains Mono',monospace;font-size:11px;border:none;border-bottom:1px dashed var(--rule);background:transparent;color:var(--ink-soft);padding:4px 2px;}
+  .location-row input.place:focus{outline:none;border-bottom-color:var(--stamp-red);}
+  .fn-map{width:100%;height:150px;border-radius:2px;border:1px solid var(--rule);margin:6px 0 10px;background:var(--paper);}
+  .fn-map .leaflet-control-attribution{font-size:9px;}
+
+  .add-fieldnote{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--stamp-red);background:none;border:1px dashed var(--stamp-red);padding:6px 10px;border-radius:2px;cursor:pointer;margin-top:2px;}
+  .add-fieldnote:hover{background:var(--stamp-red-soft);}
+
+  .photos-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;}
+  .photo-thumb{position:relative;width:64px;height:64px;border-radius:2px;overflow:hidden;border:1px solid var(--rule);cursor:pointer;}
+  .photo-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .photo-thumb .photo-del{position:absolute;top:2px;right:2px;background:rgba(43,42,38,0.65);color:#fff;border:none;border-radius:2px;font-size:10px;line-height:1;padding:3px 5px;cursor:pointer;}
+  .photo-thumb .photo-del:hover{background:var(--stamp-red);}
+  .add-photo{display:flex;align-items:center;justify-content:center;width:64px;height:64px;border:1px dashed var(--rule);border-radius:2px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-soft);cursor:pointer;text-align:center;line-height:1.3;}
+  .add-photo:hover{border-color:var(--stamp-red);color:var(--stamp-red);}
+  .add-photo input{display:none;}
+
+  textarea.gap-notes{width:100%;min-height:56px;font-family:'Source Serif 4',serif;font-size:14.5px;line-height:1.5;color:var(--ink);background:transparent;border:none;resize:vertical;}
+  textarea.gap-notes:focus{outline:none;}
+  textarea.gap-notes::placeholder{color:var(--ink-soft);font-style:italic;}
+
+  .card-bottom{display:flex;justify-content:space-between;align-items:center;margin-top:10px;}
+  label.done-toggle{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--ink-soft);display:flex;align-items:center;gap:6px;cursor:pointer;}
+  label.done-toggle input{accent-color:var(--done-green);}
+
+  .empty{text-align:center;padding:60px 20px;color:var(--ink-soft);font-style:italic;font-size:15px;border:1px dashed var(--rule);border-radius:2px;}
+  footer{text-align:center;margin-top:36px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-soft);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Field Research</div>
+    <h1>Field Notes</h1>
+    <p class="sub">Collect observations from the field, track research status per topic, see what's still missing.</p>
+  </header>
+
+  <div class="summary" id="summary"></div>
+
+  <div class="add-row">
+    <input id="newTitle" type="text" placeholder="Add new topic …" />
+    <button id="addBtn">Add</button>
+  </div>
+
+  <div id="list"></div>
+  <div class="empty" id="emptyState" style="display:none;">Nothing here yet. Add your first topic above.</div>
+
+  <footer>saved on the server (SQLite)</footer>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const API = "/api/topics";
+let topics = [];
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    headers: { "Content-Type": "application/json" },
+    ...opts,
+  });
+  if (!res.ok && res.status !== 204) throw new Error("API error " + res.status);
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+async function load() {
+  topics = await api(API);
+  render();
+}
+
+async function addTopic(title) {
+  const created = await api(API, { method: "POST", body: JSON.stringify({ title }) });
+  topics.unshift(created);
+  render();
+}
+
+async function updateTopic(id, patch) {
+  await api(`${API}/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+async function deleteTopic(id) {
+  await api(`${API}/${id}`, { method: "DELETE" });
+  topics = topics.filter(t => t.id !== id);
+  render();
+}
+
+async function addFieldNote(topicId) {
+  const fn = await api(`${API}/${topicId}/fieldnotes`, { method: "POST", body: JSON.stringify({}) });
+  const topic = topics.find(x => x.id === topicId);
+  topic.fieldNotes.push(fn);
+  render();
+}
+
+async function updateFieldNote(fnId, patch) {
+  await api(`/api/fieldnotes/${fnId}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+async function deleteFieldNote(topicId, fnId) {
+  await api(`/api/fieldnotes/${fnId}`, { method: "DELETE" });
+  const topic = topics.find(x => x.id === topicId);
+  topic.fieldNotes = topic.fieldNotes.filter(f => f.id !== fnId);
+  render();
+}
+
+async function uploadPhoto(topicId, fnId, file) {
+  const formData = new FormData();
+  formData.append("photo", file);
+  const res = await fetch(`/api/fieldnotes/${fnId}/photos`, { method: "POST", body: formData });
+  if (!res.ok) {
+    if (res.status === 413) throw new Error("photo is too large (max 25 MB)");
+    throw new Error("API error " + res.status);
+  }
+  const photo = await res.json();
+  const topic = topics.find(x => x.id === topicId);
+  const fn = topic.fieldNotes.find(f => f.id === fnId);
+  fn.photos = fn.photos || [];
+  fn.photos.push(photo);
+  render();
+}
+
+async function deletePhoto(topicId, fnId, photoId) {
+  await api(`/api/photos/${photoId}`, { method: "DELETE" });
+  const topic = topics.find(x => x.id === topicId);
+  const fn = topic.fieldNotes.find(f => f.id === fnId);
+  fn.photos = fn.photos.filter(ph => ph.id !== photoId);
+  render();
+}
+
+async function reverseGeocode(lat, lng) {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=14`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.display_name || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function setFieldNoteLocation(topicId, fnId, lat, lng) {
+  const topic = topics.find(x => x.id === topicId);
+  const fn = topic.fieldNotes.find(f => f.id === fnId);
+  fn.lat = lat;
+  fn.lng = lng;
+  await updateFieldNote(fnId, { lat, lng });
+
+  if (!fn.place) {
+    const name = await reverseGeocode(lat, lng);
+    if (name) {
+      fn.place = name;
+      await updateFieldNote(fnId, { place: name });
+    }
+  }
+  render();
+}
+
+function locateFieldNote(topicId, fnId) {
+  if (!navigator.geolocation) {
+    alert("Geolocation is not available in this browser.");
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => setFieldNoteLocation(topicId, fnId, pos.coords.latitude, pos.coords.longitude),
+    (err) => alert("Could not get location: " + err.message)
+  );
+}
+
+function render() {
+  const list = document.getElementById("list");
+  const empty = document.getElementById("emptyState");
+  list.innerHTML = "";
+  empty.style.display = topics.length === 0 ? "block" : "none";
+
+  const pendingMaps = [];
+
+  topics.forEach(topic => {
+    const card = document.createElement("div");
+    card.className = "card" + (topic.done ? " done" : "");
+
+    const top = document.createElement("div");
+    top.className = "card-top";
+    const title = document.createElement("input");
+    title.className = "card-title";
+    title.value = topic.title;
+    title.addEventListener("change", () => updateTopic(topic.id, { title: title.value }));
+    const del = document.createElement("button");
+    del.className = "del";
+    del.textContent = "✕ remove";
+    del.addEventListener("click", () => deleteTopic(topic.id));
+    top.appendChild(title);
+    top.appendChild(del);
+
+    const statusRow = document.createElement("div");
+    statusRow.className = "status-row";
+    [
+      { kind: "visit", label: "Visited" },
+      { kind: "mixed", label: "Mixed" },
+      { kind: "desk", label: "Desk research only" },
+    ].forEach(opt => {
+      const btn = document.createElement("button");
+      btn.className = "stamp";
+      btn.dataset.kind = opt.kind;
+      btn.dataset.active = topic.status === opt.kind;
+      btn.textContent = opt.label;
+      btn.addEventListener("click", async () => {
+        topic.status = topic.status === opt.kind ? null : opt.kind;
+        await updateTopic(topic.id, { status: topic.status });
+        render();
+      });
+      statusRow.appendChild(btn);
+    });
+
+    const fnLabel = document.createElement("div");
+    fnLabel.className = "section-label";
+    fnLabel.textContent = "Field Notes";
+
+    const fnList = document.createElement("div");
+    (topic.fieldNotes || []).forEach(fn => {
+      const fnEl = document.createElement("div");
+      fnEl.className = "fieldnote";
+
+      const meta = document.createElement("div");
+      meta.className = "fieldnote-meta";
+
+      const dateInput = document.createElement("input");
+      dateInput.type = "date";
+      dateInput.value = fn.date || "";
+      dateInput.addEventListener("change", () => updateFieldNote(fn.id, { date: dateInput.value }));
+
+      const fnDel = document.createElement("button");
+      fnDel.className = "fn-del";
+      fnDel.textContent = "✕";
+      fnDel.addEventListener("click", () => deleteFieldNote(topic.id, fn.id));
+
+      meta.appendChild(dateInput);
+      meta.appendChild(fnDel);
+
+      const locationRow = document.createElement("div");
+      locationRow.className = "location-row";
+
+      const locateBtn = document.createElement("button");
+      locateBtn.className = "locate-btn";
+      locateBtn.type = "button";
+      locateBtn.textContent = "📍 Use current location";
+      locateBtn.addEventListener("click", () => locateFieldNote(topic.id, fn.id));
+
+      const placeInput = document.createElement("input");
+      placeInput.className = "place";
+      placeInput.type = "text";
+      placeInput.placeholder = "Place (auto-filled from map, or type your own)";
+      placeInput.value = fn.place || "";
+      placeInput.addEventListener("change", () => updateFieldNote(fn.id, { place: placeInput.value }));
+
+      locationRow.appendChild(locateBtn);
+      locationRow.appendChild(placeInput);
+
+      const mapEl = document.createElement("div");
+      mapEl.className = "fn-map";
+      mapEl.id = `map-${fn.id}`;
+      pendingMaps.push({ topicId: topic.id, fnId: fn.id, lat: fn.lat, lng: fn.lng, el: mapEl });
+
+      const text = document.createElement("textarea");
+      text.placeholder = "Observation, conversation, smell, detail — whatever only you can supply …";
+      text.value = fn.text || "";
+      text.addEventListener("change", () => updateFieldNote(fn.id, { text: text.value }));
+
+      const photosRow = document.createElement("div");
+      photosRow.className = "photos-row";
+
+      (fn.photos || []).forEach(photo => {
+        const thumb = document.createElement("div");
+        thumb.className = "photo-thumb";
+
+        const img = document.createElement("img");
+        img.src = photo.url;
+        img.addEventListener("click", () => window.open(photo.url, "_blank"));
+
+        const photoDel = document.createElement("button");
+        photoDel.className = "photo-del";
+        photoDel.textContent = "✕";
+        photoDel.addEventListener("click", (e) => {
+          e.stopPropagation();
+          deletePhoto(topic.id, fn.id, photo.id);
+        });
+
+        thumb.appendChild(img);
+        thumb.appendChild(photoDel);
+        photosRow.appendChild(thumb);
+      });
+
+      const addPhotoLabel = document.createElement("label");
+      addPhotoLabel.className = "add-photo";
+      addPhotoLabel.textContent = "+ photo";
+      const addPhotoInput = document.createElement("input");
+      addPhotoInput.type = "file";
+      addPhotoInput.accept = "image/*";
+      addPhotoInput.addEventListener("change", () => {
+        const file = addPhotoInput.files[0];
+        if (!file) return;
+        uploadPhoto(topic.id, fn.id, file).catch(err => alert("Photo upload failed: " + err.message));
+      });
+      addPhotoLabel.appendChild(addPhotoInput);
+      photosRow.appendChild(addPhotoLabel);
+
+      fnEl.appendChild(meta);
+      fnEl.appendChild(locationRow);
+      fnEl.appendChild(mapEl);
+      fnEl.appendChild(text);
+      fnEl.appendChild(photosRow);
+      fnList.appendChild(fnEl);
+    });
+
+    const addFn = document.createElement("button");
+    addFn.className = "add-fieldnote";
+    addFn.textContent = "+ Add field note";
+    addFn.addEventListener("click", () => addFieldNote(topic.id));
+
+    const gapLabel = document.createElement("div");
+    gapLabel.className = "section-label";
+    gapLabel.textContent = "What's still missing in the topic";
+
+    const gapNotes = document.createElement("textarea");
+    gapNotes.className = "gap-notes";
+    gapNotes.placeholder = "What still needs to go in editorially so the topic doesn't read like a Wikipedia summary …";
+    gapNotes.value = topic.gapNotes || "";
+    gapNotes.addEventListener("change", () => updateTopic(topic.id, { gapNotes: gapNotes.value }));
+
+    const bottom = document.createElement("div");
+    bottom.className = "card-bottom";
+    const doneLabel = document.createElement("label");
+    doneLabel.className = "done-toggle";
+    const doneCheckbox = document.createElement("input");
+    doneCheckbox.type = "checkbox";
+    doneCheckbox.checked = !!topic.done;
+    doneCheckbox.addEventListener("change", async () => {
+      topic.done = doneCheckbox.checked;
+      await updateTopic(topic.id, { done: topic.done });
+      render();
+    });
+    doneLabel.appendChild(doneCheckbox);
+    doneLabel.append(" Incorporated into topic");
+    bottom.appendChild(doneLabel);
+
+    card.appendChild(top);
+    card.appendChild(statusRow);
+    card.appendChild(fnLabel);
+    card.appendChild(fnList);
+    card.appendChild(addFn);
+    card.appendChild(gapLabel);
+    card.appendChild(gapNotes);
+    card.appendChild(bottom);
+    list.appendChild(card);
+  });
+
+  pendingMaps.forEach(({ topicId, fnId, lat, lng, el }) => {
+    const hasLocation = lat != null && lng != null;
+    const center = hasLocation ? [lat, lng] : [20, 0];
+    const map = L.map(el).setView(center, hasLocation ? 13 : 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors',
+    }).addTo(map);
+
+    let marker = hasLocation ? L.marker([lat, lng], { draggable: true }).addTo(map) : null;
+    if (marker) {
+      marker.on('dragend', () => {
+        const pos = marker.getLatLng();
+        setFieldNoteLocation(topicId, fnId, pos.lat, pos.lng);
+      });
+    }
+
+    map.on('click', (e) => {
+      setFieldNoteLocation(topicId, fnId, e.latlng.lat, e.latlng.lng);
+    });
+  });
+
+  const total = topics.length;
+  const visits = topics.filter(t => t.status === "visit").length;
+  const desk = topics.filter(t => t.status === "desk").length;
+  const mixed = topics.filter(t => t.status === "mixed").length;
+  const unmarked = topics.filter(t => !t.status).length;
+  const done = topics.filter(t => t.done).length;
+  const totalNotes = topics.reduce((sum, t) => sum + (t.fieldNotes ? t.fieldNotes.length : 0), 0);
+
+  document.getElementById("summary").innerHTML =
+    `<span><b>${total}</b> topics</span>` +
+    `<span><b>${visits}</b> visited</span>` +
+    `<span><b>${mixed}</b> mixed</span>` +
+    `<span><b>${desk}</b> desk research</span>` +
+    `<span><b>${unmarked}</b> unmarked</span>` +
+    `<span><b>${totalNotes}</b> field notes</span>` +
+    `<span><b>${done}</b> done</span>`;
+}
+
+document.getElementById("addBtn").addEventListener("click", () => {
+  const input = document.getElementById("newTitle");
+  const val = input.value.trim();
+  if (!val) return;
+  addTopic(val);
+  input.value = "";
+});
+document.getElementById("newTitle").addEventListener("keydown", e => {
+  if (e.key === "Enter") document.getElementById("addBtn").click();
+});
+
+load();
+</script>
+</body>
+</html>
